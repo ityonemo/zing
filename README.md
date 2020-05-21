@@ -10,6 +10,8 @@ useful product.  Currently, VERY experimental.  PRs welcomed.
 
 Currently only tested on linux.  Won't work on Windows.
 
+IPv6 is not currently supported.
+
 ## Installation (current)
 
 `git clone https://github.com/ityonemo/zing`
@@ -27,7 +29,7 @@ iex> Zing.ping(:zing, {1, 1, 1, 1})  # pong for success
 iex> Zing.ping(:zing, {255, 255, 255, 255}) # pang for timeout
 :pang
 iex> Zing.ping_time(:zing, {1, 1, 1, 1}) # also returns round trip time. (includes some time in BEAM vm)
-{:pong, 23} 
+{:pong, 23}
 ```
 
 ## Installation (future)

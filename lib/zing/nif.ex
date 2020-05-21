@@ -15,12 +15,17 @@ defmodule Zing.Nif do
   // LISTENER
 
   /// a `listener` is an os thread running as a sidecar outside of the beam
-  /// scheduler.  It sits in loop, polling `recv` against the network socket.
-  /// if an ICMP request has arrived, it will send icmp messages back to the
-  /// process that called it.
+  /// schedulers (but within the BEAM vm).
+  ///
+  /// The listener function sits in a loop, polling `recv` against the network
+  /// socket.  if an ICMP request has arrived, it will send icmp messages back
+  /// to the process that called `start_listener/0`.  These messages take the
+  /// form of `{:icmp, sockaddr.family, sockaddr.data, packet}`
+  ///
+  /// `sockaddr.family` will be 2 for IPv4 and 10 for IPv6.
   ///
   /// NB: the listener also checks to make sure that the process that launched
-  /// it is still alive.
+  /// it is still alive, and will exit its loop if that is the case.
   ///
   /// nif: start_listener/0
   fn start_listener(env: beam.env) beam.term {
@@ -73,9 +78,10 @@ defmodule Zing.Nif do
 
     while (true) {
       if (recv_ping(socket, &recv_addr, packet[0..])) | _result | {
+        // respond to the parent server if a message has arrived.
         send_icmp(env, parent, &recv_addr, packet[0..]);
       } else |err| switch(err) {
-        os.RecvFromError.WouldBlock => _ = null, // normal timeout.
+        os.RecvFromError.WouldBlock => _ = null,
         os.RecvFromError.SystemResources => {
           send_error(env, parent, "resources");
           break;  // terminates the receive loop
@@ -94,7 +100,9 @@ defmodule Zing.Nif do
       if (0 == d.enif_is_process_alive(@ptrCast(?*d.ErlNifEnv, env), @ptrCast(?*d.ErlNifPid, parent))) break;
     }
 
-    // send the parent process a died signal if it fails.
+    // send the parent process a died signal if it has failed, prior to
+    // actually dying.  If the parent has already died, the vm will drop
+    // the message on the floor.
     send_error(env, parent, "dead");
 
     return null;
@@ -127,24 +135,42 @@ defmodule Zing.Nif do
   /////////////////////////////////////////////////////////////////////////////
   // SENDER
 
+  // sender functions as a BEAM resource representing the ping socket
+  // file descriptor.  This is passed as a resource instead of an integer
+  // to keep it opaque to the user and in case the information needs to be
+  // expanded as a struct in a future implementation.
+
   /// resource: ping_socket definition
   const ping_socket = os.fd_t;
 
+  // return a BEAM resource, which encapsulates the ping socket.
+  //
+  // this resource should be passed into future calls to `ping/3` can know
+  // so that the socket identity is available to the ping function.
+  //
   /// nif: connect/0
   fn connect(env: beam.env) beam.term {
     var new_socket = setup_socket()
       catch return beam.make_atom(env, "socket_error");
+    errdefer os.close(socket);
+
     return __resource__.create(ping_socket, env, new_socket)
       catch return beam.make_atom(env, "resource_error");
   }
 
-  // cleans up a ping socket.  This is done by closing the socket,
-  // using zig's builtin os.close
-  /// resource: ping_socket cleanup
+  // cleans up a ping socket.
+  //
+  // This is done using zig's builtin `z:os.close/1`
+  //
+  // resource: ping_socket cleanup
   fn ping_socket_cleanup(env: beam.env, sockptr: *ping_socket) void {
     os.close(sockptr.*);
   }
 
+  /// passed the connection socket (resource), an ip address as a 4-byte
+  /// binary, and the packet (which should be a 64 byte binary).  Sends this
+  /// over the network socket
+  ///
   /// nif: ping/3
   fn ping(env: beam.env, conn: beam.term, ip_addr: []u8, packet: []u8) beam.term {
     if (ip_addr.len != 4) return beam.make_atom(env, "ip_error");
@@ -166,6 +192,7 @@ defmodule Zing.Nif do
 
     // create the socket.
     var socket = try os.socket(os.AF_INET, os.SOCK_RAW, os.IPPROTO_ICMP);
+    errdefer os.close(socket);
 
     try os.setsockopt(socket, os.SOL_IP, IP_TTL, ttl_val[0..]);
 
