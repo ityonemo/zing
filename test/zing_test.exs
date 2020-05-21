@@ -1,0 +1,2 @@
+defmodule ZingTest do
+end
