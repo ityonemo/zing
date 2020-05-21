@@ -140,7 +140,7 @@ defmodule Zing.Nif do
 
   // cleans up a ping socket.  This is done by closing the socket,
   // using zig's builtin os.close
-  // resource: ping_socket cleanup
+  /// resource: ping_socket cleanup
   fn ping_socket_cleanup(env: beam.env, sockptr: *ping_socket) void {
     os.close(sockptr.*);
   }
