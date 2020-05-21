@@ -8,6 +8,8 @@ Uses a Zig NIF.  This library is a testbed to understand the
 deficiencies in the Zigler package with regard to deploying an actually
 useful product.  Currently, VERY experimental.  PRs welcomed.
 
+Currently only tested on linux.  Won't work on Windows.
+
 ## Installation (current)
 
 `git clone https://github.com/ityonemo/zing`
