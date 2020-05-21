@@ -22,10 +22,12 @@ Don't forget to `sudo setcap cap_net_raw=+ep <path/to/beam.smp>`!
 
 ```
 iex> Zing.start_link(name: :zing)
-iex> Zing.ping(:zing, {1, 1, 1, 1})
+iex> Zing.ping(:zing, {1, 1, 1, 1})  # pong for success
 :pong
-iex> Zing.ping_time(:zing, {255, 255, 255, 255})
+iex> Zing.ping(:zing, {255, 255, 255, 255}) # pang for timeout
 :pang
+iex> Zing.ping_time(:zing, {1, 1, 1, 1}) # also returns round trip time. (includes some time in BEAM vm)
+{:pong, 23} 
 ```
 
 ## Installation (future)
