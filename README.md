@@ -8,11 +8,23 @@ Uses a Zig NIF.  This library is a testbed to understand the
 deficiencies in the Zigler package with regard to deploying an actually
 useful product.  Currently, VERY experimental.  PRs welcomed.
 
-## Testing (current)
+## Installation (current)
 
 `git clone https://github.com/ityonemo/zing`
 
+`mix zigler.get_zig 0.6.0`
+
 Don't forget to `sudo setcap cap_net_raw=+ep <path/to/beam.smp>`!
+
+## Usage
+
+```
+iex> Zing.start_link(name: :zing)
+iex> Zing.ping(:zing, {1, 1, 1, 1})
+:pong
+iex> Zing.ping_time(:zing, {255, 255, 255, 255})
+:pang
+```
 
 ## Installation (future)
 
